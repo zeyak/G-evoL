@@ -12,6 +12,7 @@ def count_motifs_per_species(df_glycan: pd.DataFrame,
     df_motif.index = df_sp.values
     df_sp_motif_counts = df_motif.groupby(df_motif.index
                                           ).sum()
+    df_sp_motif_counts.to_csv("/output/motif_counts_per_species.csv")
     return df_sp_motif_counts
 
 df_sp_motif_counts = count_motifs_per_species(df_glycan)
