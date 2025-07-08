@@ -1,6 +1,7 @@
+import pandas as pd
 from glycowork.motif.annotate import annotate_dataset
 from glycowork.glycan_data.loader import df_glycan, df_species
-import pandas as pd
+
 
 def count_motifs_per_species(df_glycan: pd.DataFrame,
                              condense: bool = True) -> pd.DataFrame:
