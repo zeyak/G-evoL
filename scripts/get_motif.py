@@ -1,25 +1,46 @@
+import pandas as pd
 from glycowork.motif.annotate import annotate_glycan, annotate_dataset, quantify_motifs
 from glycowork.glycan_data.loader import df_glycan, df_species
-import pandas as pd
+from ete3 import NCBITaxa
+ncbi = NCBITaxa()
 
 
-def count_motifs_per_species(df_glycan: pd.DataFrame, condense: bool = True) -> pd.DataFrame:
+sp_list = (
+    df_species["Species"]
+    .drop_duplicates()
+    .str.strip()
+    .str.replace("_", " ")
+    .tolist()
+)
 
-    #df_sp = df_glycan["Species"].apply(lambda x: str(x).split(",")[0].strip())
-    df_sp = df_species["Species"][:100]
-    df_gly = df_glycan["glycan"][:100]
+taxids = []
+count = 0
+for sp in sp_list:
+    name2taxid = ncbi.get_name_translator([sp])
+    if sp in name2taxid:
+        taxids.append(name2taxid[sp][0])
+    else:
+        print(f"Warning: Taxid not found for {sp}")
+        count += 1
+tree = ncbi.get_topology(taxids)
+print(tree.get_ascii(show_internal=True))
+print(f"Taxid not found: {count}")
+tree.write(outfile="output/2918_species_tree.nw")
 
-    df_motif = annotate_dataset(df_gly.tolist(), condense=condense)
-    df_motif.index = df_sp.values
-    df_sp_motif_counts = df_motif.groupby(df_motif.index).sum()
 
-    return df_sp_motif_counts
+df_gly_sp = df_species[["glycan", "Species"]]#[:100]
 
+sp_gly_dic = df_gly_sp.groupby("Species")["glycan"].agg(list).to_dict()
 
-df_sp_motif_counts = count_motifs_per_species(df_glycan, condense=True)
-df_sp_motif_counts.to_csv("output/motif_counts_per_species.csv", index=True, header=True)
-df_sp_motif_present= (df_sp_motif_counts > 0).astype(int)
-df_sp_motif_present.to_csv("output/motif_presence_absence_per_species.csv", index=True, header=True)
+species_dfs = []
+for species, glycan_list in sp_gly_dic.items():
+    df = annotate_dataset(glycan_list)
+    df["Species"] = species
+    species_dfs.append(df)
 
-print(df_sp_motif_counts.head())
+combined_df = pd.concat(species_dfs, ignore_index=True)
 
+result_df = combined_df.groupby("Species").sum(numeric_only=True)
+result_df.to_csv("output/motif_counts_per_species.csv", index=True, header=True)
+
+print(result_df)
